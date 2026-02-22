@@ -2,40 +2,52 @@ import java.util.*;
 
 public class CafeteriaSystem {
     private final Map<String, MenuItem> menu = new LinkedHashMap<>();
-    private final FileStore store = new FileStore();
+    private final TaxCalculator taxCalculator;
+    private final DiscountCalculator discountCalculator;
+    private final InvoiceFormatter formatter;
+    private final InvoiceStore store;
     private int invoiceSeq = 1000;
 
-    public void addToMenu(MenuItem i) { menu.put(i.id, i); }
+    public CafeteriaSystem(TaxCalculator taxCalculator,
+            DiscountCalculator discountCalculator,
+            InvoiceFormatter formatter,
+            InvoiceStore store) {
+        this.taxCalculator = taxCalculator;
+        this.discountCalculator = discountCalculator;
+        this.formatter = formatter;
+        this.store = store;
+    }
 
-    // Intentionally SRP-violating: menu mgmt + tax + discount + format + persistence.
-    public void checkout(String customerType, List<OrderLine> lines) {
+    public void addToMenu(MenuItem i) {
+        menu.put(i.id, i);
+    }
+
+    public void checkout(List<OrderLine> lines) {
         String invId = "INV-" + (++invoiceSeq);
-        StringBuilder out = new StringBuilder();
-        out.append("Invoice# ").append(invId).append("\n");
 
+        // 1. Compute subtotal
         double subtotal = 0.0;
         for (OrderLine l : lines) {
             MenuItem item = menu.get(l.itemId);
-            double lineTotal = item.price * l.qty;
-            subtotal += lineTotal;
-            out.append(String.format("- %s x%d = %.2f\n", item.name, l.qty, lineTotal));
+            subtotal += item.price * l.qty;
         }
 
-        double taxPct = TaxRules.taxPercent(customerType);
+        // 2. Delegate tax
+        double taxPct = taxCalculator.taxPercent();
         double tax = subtotal * (taxPct / 100.0);
 
-        double discount = DiscountRules.discountAmount(customerType, subtotal, lines.size());
+        // 3. Delegate discount
+        double discount = discountCalculator.discountAmount(subtotal, lines.size());
 
+        // 4. Compute total
         double total = subtotal + tax - discount;
 
-        out.append(String.format("Subtotal: %.2f\n", subtotal));
-        out.append(String.format("Tax(%.0f%%): %.2f\n", taxPct, tax));
-        out.append(String.format("Discount: -%.2f\n", discount));
-        out.append(String.format("TOTAL: %.2f\n", total));
-
-        String printable = InvoiceFormatter.identityFormat(out.toString());
+        // 5. Delegate formatting
+        String printable = formatter.format(invId, lines, menu,
+                subtotal, taxPct, tax, discount, total);
         System.out.print(printable);
 
+        // 6. Delegate persistence
         store.save(invId, printable);
         System.out.println("Saved invoice: " + invId + " (lines=" + store.countLines(invId) + ")");
     }
