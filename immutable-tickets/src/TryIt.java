@@ -16,19 +16,25 @@ public class TryIt {
     public static void main(String[] args) {
         TicketService service = new TicketService();
 
-        IncidentTicket t = service.createTicket("TCK-1001", "reporter@example.com", "Payment failing on checkout");
-        System.out.println("Created: " + t);
+        IncidentTicket original = service.createTicket(
+                "TCK-1001", "reporter@example.com", "Payment failing on checkout");
+        System.out.println("Created : " + original);
 
         // Demonstrate post-creation mutation through service
-        service.assign(t, "agent@example.com");
-        service.escalateToCritical(t);
-        System.out.println("\nAfter service mutations: " + t);
+        IncidentTicket assigned = service.assign(original, "agent@example.com");
+        System.out.println("\nAssigned: " + assigned);
+        System.out.println("Original unchanged: " + original);
+
+        IncidentTicket escalated = service.escalateToCritical(assigned);
+        System.out.println("\nEscalated: " + escalated);
+        System.out.println("Assigned unchanged: " + assigned);
 
         // Demonstrate external mutation via leaked list reference
-        List<String> tags = t.getTags();
-        tags.add("HACKED_FROM_OUTSIDE");
-        System.out.println("\nAfter external tag mutation: " + t);
-
-        // Starter compiles; after refactor, you should redesign updates to create new objects instead.
+        try {
+            original.getTags().add("HACKED_FROM_OUTSIDE");
+            System.out.println("\n[FAIL] Tags were mutated externally!");
+        } catch (UnsupportedOperationException e) {
+            System.out.println("\n[OK] External tag mutation blocked: " + e.getClass().getSimpleName());
+        }
     }
 }
