@@ -12,6 +12,6 @@ public class NearestSpotStrategy implements ParkingStrategy {
                 return available.get(0); // first available spot on the lowest floor
             }
         }
-        return null; // no spot found
+        return null;
     }
 }
