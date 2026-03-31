@@ -1,44 +1,50 @@
 import java.time.LocalDateTime;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class ParkingLot {
     private final List<ParkingFloor> floors;
-    private final Map<String, Ticket> activeTickets;
+    private final ConcurrentHashMap<String, Ticket> activeTickets;
     private final ParkingStrategy parkingStrategy;
-    private int ticketCounter;
+    private final AtomicInteger ticketCounter;
+    private final ReentrantLock lock = new ReentrantLock(true);
 
     ParkingLot(List<ParkingFloor> floors, ParkingStrategy parkingStrategy) {
         this.floors = floors;
         this.parkingStrategy = parkingStrategy;
-        this.activeTickets = new HashMap<>();
-        this.ticketCounter = 0;
+        this.activeTickets = new ConcurrentHashMap<>();
+        this.ticketCounter = new AtomicInteger(0);
     }
 
     public Ticket findAndPark(Vehicle vehicle, LocalDateTime entryTime) {
-        ParkingSpot spot = parkingStrategy.findSpot(floors, vehicle.getType());
-        if (spot == null) {
-            throw new IllegalStateException("No available spot for vehicle type: " + vehicle.getType());
-        }
-
-        spot.park(vehicle);
-
-        // Find which floor this spot belongs to
-        int floorNumber = -1;
-        for (ParkingFloor floor : floors) {
-            if (floor.getSpots().contains(spot)) {
-                floorNumber = floor.getFloorNumber();
-                break;
+        lock.lock();
+        try {
+            ParkingSpot spot = parkingStrategy.findSpot(floors, vehicle.getType());
+            if (spot == null) {
+                throw new IllegalStateException("No available spot for vehicle type: " + vehicle.getType());
             }
+
+            spot.park(vehicle);
+
+            // Find which floor this spot belongs to
+            int floorNumber = -1;
+            for (ParkingFloor floor : floors) {
+                if (floor.getSpots().contains(spot)) {
+                    floorNumber = floor.getFloorNumber();
+                    break;
+                }
+            }
+
+            String ticketId = "T-" + ticketCounter.incrementAndGet();
+            Ticket ticket = new Ticket(ticketId, vehicle, spot, floorNumber, entryTime);
+            activeTickets.put(ticketId, ticket);
+
+            return ticket;
+        } finally {
+            lock.unlock();
         }
-
-        ticketCounter++;
-        String ticketId = "T-" + ticketCounter;
-        Ticket ticket = new Ticket(ticketId, vehicle, spot, floorNumber, entryTime);
-        activeTickets.put(ticketId, ticket);
-
-        return ticket;
     }
 
     public Ticket getActiveTicket(String ticketId) {
@@ -46,14 +52,19 @@ public class ParkingLot {
     }
 
     public ParkingSpot unpark(String ticketId) {
-        Ticket ticket = activeTickets.remove(ticketId);
-        if (ticket == null) {
-            throw new IllegalArgumentException("No active ticket found: " + ticketId);
-        }
+        lock.lock();
+        try {
+            Ticket ticket = activeTickets.remove(ticketId);
+            if (ticket == null) {
+                throw new IllegalArgumentException("No active ticket found: " + ticketId);
+            }
 
-        ParkingSpot spot = ticket.getSpot();
-        spot.unpark();
-        return spot;
+            ParkingSpot spot = ticket.getSpot();
+            spot.unpark();
+            return spot;
+        } finally {
+            lock.unlock();
+        }
     }
 
     public void displayAvailability() {
@@ -68,3 +79,4 @@ public class ParkingLot {
         return floors;
     }
 }
+

@@ -6,6 +6,8 @@ public class Ticket {
     private final ParkingSpot spot;
     private final int floorNumber;
     private final LocalDateTime entryTime;
+    private int fee;
+    private PaymentMethod paymentMethod;
 
     public Ticket(String ticketId, Vehicle vehicle, ParkingSpot spot,
                   int floorNumber, LocalDateTime entryTime) {
@@ -14,6 +16,8 @@ public class Ticket {
         this.spot = spot;
         this.floorNumber = floorNumber;
         this.entryTime = entryTime;
+        this.fee = 0;
+        this.paymentMethod = null;
     }
 
     public String getTicketId() {
@@ -36,10 +40,30 @@ public class Ticket {
         return entryTime;
     }
 
+    public int getFee() {
+        return fee;
+    }
+
+    public void setFee(int fee) {
+        this.fee = fee;
+    }
+
+    public PaymentMethod getPaymentMethod() {
+        return paymentMethod;
+    }
+
+    public void setPaymentMethod(PaymentMethod paymentMethod) {
+        this.paymentMethod = paymentMethod;
+    }
+
     @Override
     public String toString() {
-        return "Ticket{id='" + ticketId + "', vehicle=" + vehicle
+        String base = "Ticket{id='" + ticketId + "', vehicle=" + vehicle
                 + ", floor=" + floorNumber + ", spot=#" + spot.getSpotNumber()
-                + ", entry=" + entryTime + "}";
+                + ", entry=" + entryTime;
+        if (paymentMethod != null) {
+            base += ", fee=" + fee + ", paid=" + paymentMethod;
+        }
+        return base + "}";
     }
 }
