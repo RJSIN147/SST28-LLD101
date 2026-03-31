@@ -1,5 +1,6 @@
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public class ElevatorController {
     private final List<Elevator> elevators;
@@ -9,7 +10,7 @@ public class ElevatorController {
     public ElevatorController(List<Elevator> elevators, DispatchStrategy dispatchStrategy) {
         this.elevators = elevators;
         this.dispatchStrategy = dispatchStrategy;
-        this.observers = new ArrayList<>();
+        this.observers = new CopyOnWriteArrayList<>();
     }
 
     public void addObserver(ElevatorObserver observer) {

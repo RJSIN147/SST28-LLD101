@@ -1,6 +1,7 @@
 import java.util.ArrayList;
 import java.util.List;
 import java.util.TreeSet;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class Elevator {
     private final int elevatorId;
@@ -12,6 +13,7 @@ public class Elevator {
     private final TreeSet<Integer> upRequests;
     private final TreeSet<Integer> downRequests;
     private final List<Passenger> passengers;
+    private final ReentrantLock lock = new ReentrantLock(true);
 
     public Elevator(int elevatorId, int maxWeightLimit) {
         this.elevatorId = elevatorId;
@@ -25,31 +27,55 @@ public class Elevator {
         this.passengers = new ArrayList<>();
     }
 
+    public void lock() {
+        lock.lock();
+    }
+
+    public void unlock() {
+        lock.unlock();
+    }
+
     public void addRequest(int floor) {
-        state.handleRequest(this, floor);
+        lock.lock();
+        try {
+            state.handleRequest(this, floor);
+        } finally {
+            lock.unlock();
+        }
     }
 
     public void move() {
-        state.move(this);
+        lock.lock();
+        try {
+            state.move(this);
+        } finally {
+            lock.unlock();
+        }
     }
 
     // --- Passenger boarding ---
 
     public boolean boardPassenger(Passenger passenger) {
-        if (isOverloaded(passenger.getWeight())) {
-            System.out.println("  [Elevator #" + elevatorId + "] OVERLOADED! Cannot board "
-                    + passenger + ". Current: " + currentWeight + "kg, Limit: " + maxWeightLimit + "kg");
-            return false;
+        lock.lock();
+        try {
+            if (isOverloaded(passenger.getWeight())) {
+                System.out.println("  [Elevator #" + elevatorId + "] OVERLOADED! Cannot board "
+                        + passenger + ". Current: " + currentWeight + "kg, Limit: " + maxWeightLimit + "kg");
+                return false;
+            }
+            passengers.add(passenger);
+            currentWeight += passenger.getWeight();
+            addRequestInternal(passenger.getDestinationFloor());
+            System.out.println("  [Elevator #" + elevatorId + "] Boarded " + passenger
+                    + ". Weight: " + currentWeight + "/" + maxWeightLimit + "kg");
+            return true;
+        } finally {
+            lock.unlock();
         }
-        passengers.add(passenger);
-        currentWeight += passenger.getWeight();
-        addRequest(passenger.getDestinationFloor());
-        System.out.println("  [Elevator #" + elevatorId + "] Boarded " + passenger
-                + ". Weight: " + currentWeight + "/" + maxWeightLimit + "kg");
-        return true;
     }
 
     public void deboardPassengers() {
+        // Called from openDoor() which is called from move() — lock already held
         List<Passenger> toRemove = new ArrayList<>();
         for (Passenger p : passengers) {
             if (p.getDestinationFloor() == currentFloor) {
@@ -66,7 +92,13 @@ public class Elevator {
         return (currentWeight + additionalWeight) > maxWeightLimit;
     }
 
-    // --- Movement helpers (called by states) ---
+    // --- Internal request (called when lock is already held) ---
+
+    private void addRequestInternal(int floor) {
+        state.handleRequest(this, floor);
+    }
+
+    // --- Movement helpers (called by states — lock already held) ---
 
     public void moveUp() {
         currentFloor++;
@@ -149,3 +181,4 @@ public class Elevator {
                 + ", passengers=" + passengers.size() + "}";
     }
 }
+
