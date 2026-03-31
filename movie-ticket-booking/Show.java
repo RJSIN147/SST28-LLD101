@@ -2,6 +2,7 @@ import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
 public class Show {
@@ -10,6 +11,7 @@ public class Show {
     private final Screen screen;
     private final LocalDateTime showTime;
     private final Set<Integer> bookedSeatNumbers;
+    private final ReentrantLock lock = new ReentrantLock(true); // fair lock
 
     Show(int showId, Movie movie, Screen screen, LocalDateTime showTime) {
         this.showId = showId;
@@ -17,6 +19,14 @@ public class Show {
         this.screen = screen;
         this.showTime = showTime;
         this.bookedSeatNumbers = new HashSet<>();
+    }
+
+    public void lock() {
+        lock.lock();
+    }
+
+    public void unlock() {
+        lock.unlock();
     }
 
     public boolean isAvailable(int seatNumber) {
